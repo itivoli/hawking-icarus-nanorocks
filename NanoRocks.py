@@ -1,8 +1,10 @@
 
 import datetime
+import subprocess
 import os.path
 import pigpio
 from picamera2 import Picamera2
+from picamera2.outputs import FfmpegOutput
 from picamera2.encoders import H264Encoder
 
 class NanoRocks:
@@ -20,13 +22,13 @@ class NanoRocks:
     __ledPinState = False
     __active = False 
     __isRecording = False
-    __video_save_path = ""
+    __video_file_name = ""
     
-    def __init__(self, solenoidPin, ledPin, videoSavePath):
+    def __init__(self, solenoidPin, ledPin, videoFileName):
         # Add the pins and save path.
         self.__solenoidPin = solenoidPin
         self.__ledPin = ledPin
-        self.__video_save_path = videoSavePath
+        self.__video_file_name = videoFileName
 
         return
     
@@ -66,9 +68,8 @@ class NanoRocks:
 
         # Turn on recording.
         if(not self.__isRecording):
-            date = datetime.datetime.now().strftime("%H_%M_%S")
-            filename = os.path.join(self.__video_save_path + ".h264")
-            self.__piCam.start_recording(self.__camEncoder, filename)
+            outputPath = FfmpegOutput(self.__video_file_name + ".mp4", audio=False)
+            self.__piCam.start_recording(self.__camEncoder, outputPath)
             self.__isRecording = True
 
         # Turn off recording.

@@ -5,20 +5,33 @@ from Icarus import Icarus
 SOL = 5
 LED = 6
 MPU = 0x68
-PATH = "video"
+VIDEO_NAME = "video"
+LOG_NAME = "log"
 
-log_file = open("log.txt", "w")
+ofDaedalus = Icarus(SOL, LED, MPU, LOG_NAME, VIDEO_NAME)
+ofDaedalus.begin()
+nr = ofDaedalus.getNanoRocks()
+sw = ofDaedalus.getTimer()
 
-i = Icarus(SOL, LED, MPU, PATH)
-nr = NanoRocks(SOL, LED, PATH)
-sw = Timer()
+for i in range(5):
+    print(f"[{5 - i}] Starting.")
+    ofDaedalus.delayMillis(1000)
 
-nr.begin()
+print("-"*30)
 nr.toggleRecording()
 active = True
+printFlag = False
+sw.begin(15000)
 while(active):
-    if(sw.getCurrTime() == 10000): active = False 
-    else:
-        log_file.write(f"log {sw.getCurrTime()}\n")
-    sw.delayMillis(100)
+    if(sw.timeElapsed() >= 15000): active = False 
+    else: 
+        if(printFlag == False): 
+            print("recording in progress...")
+            printFlag = True
+        ofDaedalus.loop()
 
+nr.toggleRecording()
+print("-"*30)
+for i in range(5):
+    print(f"[{5 - i}] Stopping.")
+    ofDaedalus.delayMillis(100)

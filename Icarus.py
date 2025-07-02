@@ -25,10 +25,17 @@ class Icarus:
     __mpu = None 
     __nanoRocks = None
 
+    __logFileName = None
+    __logFile = None
     __bufferLength = 10
     __bufferIndex = 0 
     __mpuBuffer = None 
     __gravityState = STANDARD_G
+
+    def __logMPU(self, aData, magnitude, gData):
+        entry = f"{self.__iTimer.getCurrTime()}; {aData[0]}; {aData[1]}; {aData[2]}; {magnitude}; {gData[0]}; {gData[1]}; {gData[2]}\n"
+        self.__logFile.write(entry)
+        return
 
     def __readMPU(self):
         accel_data = self.__mpu.get_accel_data()
@@ -37,12 +44,12 @@ class Icarus:
         xAccel = accel_data['x'] - self.__ACCEL_X_OS
         yAccel = accel_data['y'] - self.__ACCEL_Y_OS
         zAccel = accel_data['z'] - self.__ACCEL_Z_OS
-
         xGyro = gyro_data['x'] - self.__GYRO_X_OS
         yGyro = gyro_data['y'] - self.__GYRO_Y_OS
         zGyro = gyro_data['z'] - self.__GYRO_Z_OS
-
+        
         magnitude = (xAccel **2 + yAccel**2 + zAccel**2)**0.5
+        self.__logMPU([xAccel, yAccel, zAccel], magnitude, [xGyro, yGyro, zGyro])
 
         # Store calibrated acceleration, raw gyro, accel magnitude.
         if(self.__bufferIndex == self.__bufferLength) :
@@ -74,15 +81,22 @@ class Icarus:
 
         return
     
-    def __init__(self, solenoidPin, ledPin, mpuAddress, videoSavePath):
+    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName):
         self.__iTimer = Timer()
         self.__mpu = mpu6050(mpuAddress)
-        self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSavePath)
+        self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSaveName)
         self.__mpuBuffer = np.zeros(self.__bufferLength)
+        self.__logFileName = logFileName
         return
 
     def begin(self):
         self.__nanoRocks.begin()
+
+        path = self.__logFileName + ".txt"
+        header = "Time (ms); xAccel(m/s^2); yAccel(m/s^2); zAccel(m/s^2); accel Magnitude; xGyro; yGyro; zGyro\n"
+
+        self.__logFile = open(path, 'w')
+        self.__logFile.write(header)
         return
 
     def end(self):
@@ -109,3 +123,6 @@ class Icarus:
 
     def getNanoRocks(self):
         return self.__nanoRocks
+
+    def getTimer(self):
+        return self.__iTimer
