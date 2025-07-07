@@ -9,8 +9,14 @@ class Timer:
 
     def __tick(self, interval): self.__currTime += interval
 
-    def begin(self, duration): 
-        self.__startTime = self.__currTime
+    def begin(self, duration, reset = False): 
+        # Reset if needed.
+        if (reset):
+            self.__startTime = 0
+            self.__currTime = 0
+        else: 
+            self.__startTime = self.__currTime 
+
         self.__duration = duration
         self.__timerOn = True
         return

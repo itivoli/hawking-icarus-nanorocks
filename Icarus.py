@@ -108,8 +108,9 @@ class Icarus:
         return
 
     def loop(self):
+        self.__nanoRocks.updateTimeStamp(self.__iTimer.getCurrTime())
         self.__updateGravityStatus()
-        self.delayMillis()
+        self.delayMillis(500)
         return
     
     def runExperiment(self):
