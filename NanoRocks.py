@@ -10,7 +10,6 @@ from libcamera import controls
 from picamera2.encoders import H264Encoder
 
 class NanoRocks:
-    __RECORDING_START_DELAY = 0
     __SOLENOID_DELAY = 500  # 500 ms.
     __PIN_HIGH = 1
     __PIN_LOW = 0
@@ -21,8 +20,8 @@ class NanoRocks:
 
     __solenoidPin = 0
     __ledPin = 0
-    __solenoidPinState = False
-    __ledPinState = False
+    __solenoidPinState = __PIN_LOW
+    __ledPinState = __PIN_LOW
     __active = False 
     __isRecording = False
     __video_file_name = ""
@@ -41,6 +40,8 @@ class NanoRocks:
         self.__gpio = pigpio.pi()
         self.__gpio.set_mode(self.__solenoidPin, pigpio.OUTPUT)
         self.__gpio.set_mode(self.__ledPin, pigpio.OUTPUT)
+        self.__gpio.write(self.__solenoidPin, self.__PIN_LOW)
+        self.__gpio.write(self.__ledPin, self.__PIN_LOW)
 
         # Camera Setup.
         self.__piCam = Picamera2()
@@ -51,18 +52,25 @@ class NanoRocks:
         return
 
     def end(self):
-        # Ensure solenoid is off.
-        self.__gpio.write( self.__solenoidPin,  self.__PIN_LOW) 
-        self.toggleRecording()
+        self.__active = False
+
+        #Ensure Solenoid is off and not drawing current.
+        self.__gpio.write(self.__solenoidPin, self.__PIN_LOW)
+
+        # Ensure recording and gpio (?) are stopped.
+        if self.__isRecording: self.toggleRecording()
+        self.__gpio.stop()
         return
 
     def toggleSolenoid(self):
-        self.__solenoidPinState = (self.__PIN_LOW) if (self.__solenoidPinState == self.__PIN_HIGH) else (self.__PIN_LOW)
+        print(f"Pre Solenoid State: {self.__solenoidPinState} -> {self.__solenoidPinState}")
+        self.__solenoidPinState = (self.__PIN_LOW) if (self.__solenoidPinState == self.__PIN_HIGH) else (self.__PIN_HIGH)
         self.__gpio.write( self.__solenoidPin,  self.__solenoidPinState)
+        print(f"Post Solenoid State: {self.__solenoidPinState} -> {self.__solenoidPinState}")
         return
 
     def toggleLed(self):
-        self.__ledPinState = (self.__PIN_LOW) if (self.__ledPinState == self.__PIN_HIGH) else (self.__PIN_LOW)
+        self.__ledPinState = (self.__PIN_LOW) if (self.__ledPinState == self.__PIN_HIGH) else (self.__PIN_HIGH)
         self.__gpio.write( self.__ledPin,  self.__ledPinState)
         return
 
@@ -75,7 +83,7 @@ class NanoRocks:
             self.__outputFile = self.__video_file_name + ".h264"
             self.__piCam.start_recording(self.__camEncoder, self.__outputFile)
             self.__piCam.set_controls({"AfMode": controls.AfModeEnum.Continuous})
-            if(self.__RECORDING_START_DELAY > 0): time.sleep(self.__RECORDING_START_DELAY)
+            self.__active = True
             self.__isRecording = True
 
         # Turn off recording.
@@ -103,3 +111,6 @@ class NanoRocks:
         cv2.putText(overlay, str(time), origin, font, scale, colour, thickness)
         self.__piCam.set_overlay(overlay)
         return
+
+    def isActive(self):
+        return self.__active

@@ -1,46 +1,48 @@
 
-
-#"""
-from Timer import Timer
-from NanoRocks import NanoRocks
 from Icarus import Icarus
 
+# Icarus Nanorocks constants.
 SOL = 5
 LED = 6
 MPU = 0x68
 VIDEO_NAME = "cmrlab_inr_video"
-LOG_NAME = "cmrlab_inr_log"
+LOG_NAME = "cmrlab_inr_video"
 
+# Setup.
 ofDaedalus = Icarus(SOL, LED, MPU, LOG_NAME, VIDEO_NAME)
 ofDaedalus.begin()
-nr = ofDaedalus.getNanoRocks()
-sw = ofDaedalus.getTimer()
 
-countdown = 3
-for i in range(countdown):
-    print(f"[{countdown - i}] Starting.")
-    ofDaedalus.delayMillis(1000)
+# Launch Detection Loop.
+print("Entering Launch Detection Loop.")
+gState = ofDaedalus.getgravityState()
+while (gState != Icarus.HIGH_G):
+    ofDaedalus.loop()
+    gState = ofDaedalus.getgravityState()
+    print(f"Current G state: {gState}")
+print("Exiting Launch Detection Loop.")
 
-print("-"*30)
-nr.toggleRecording()
-recordingDuration = 15000
-sw.begin(recordingDuration, True)
+# Boost Stage Wait Loop.
+print("Entering Boost Wait Loop.")
+gState = ofDaedalus.getgravityState()
+ofDaedalus.getNanoRocks().toggleRecording()
+ofDaedalus.getTimer().begin(Icarus.BOOST_MEAS_PERIOD)
+clkExpired = ofDaedalus.getTimer().getTimerExpired()
+while (clkExpired != True):
+    ofDaedalus.loop()
+    clkExpired = ofDaedalus.getTimer().getTimerExpired()
+    print(f"Current Time: {ofDaedalus.getTimer().getCurrTime()}")
+print("Exiting Boost Wait Loop.")
 
-active = True
-printFlag = False
-while(active):
-    if(sw.timeElapsed() >= recordingDuration): active = False 
-    else: 
-        if(printFlag == False): 
-            print(f"recording in progress...: [{sw.timeElapsed()}]")
-            #printFlag = True
-        ofDaedalus.loop()
+# Main Experiment Loop.
+print("Entering Main Experiment Loop.")
+ofDaedalus.runExperiment()
+while (ofDaedalus.getgravityState() != Icarus.HIGH_G):
+    ofDaedalus.runExperiment()
+    ofDaedalus.loop()
+print("Exiting Main Experiment Loop.")
 
-nr.toggleRecording()
-print("-"*30)
-for i in range(countdown):
-    print(f"[{countdown - i}] Stopping.")
-    ofDaedalus.delayMillis(100)
-#"""
-
+# Conclusion.
+print("Ending Experiment.")
+ofDaedalus.end()
+print("Experiment Ended. Program Done.")
 

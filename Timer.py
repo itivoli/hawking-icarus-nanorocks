@@ -39,3 +39,6 @@ class Timer:
     
     def getStartTime(self):
         return self.__startTime
+
+    def getTimerExpired(self):
+        return self.__timerExpired

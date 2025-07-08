@@ -3,13 +3,18 @@ from NanoRocks import NanoRocks
 from mpu6050 import mpu6050
 import numpy as np
 
+testingMpu = False 
 class Icarus:
-    STANDARD_G = 191
-    MICRO_G = 119
-    HIGH_G = 911
+
+    BOOST_MEAS_PERIOD = 30 * 1000         # 30 Seconds.
+    SOLENOID_TRIGGER_PERIOD = 0.5 * 1000  # 0.5 Seconds.
+
+    STANDARD_G = "Standard_G"
+    MICRO_G = "Micro_G"
+    HIGH_G = "High_G"
 
     __MICRO_G_BOUND = 1
-    __HIGH_G_BOUND = 10
+    __HIGH_G_BOUND = 20
 
     __ACCEL_X_OS = 0.5058     # Calibrated accelormeter X-offset.
     __ACCEL_Y_OS = -0.0998    # Calibrated accelormeter Y-offset.
@@ -18,16 +23,13 @@ class Icarus:
     __GYRO_Y_OS = -1.1137     # Calibrated gyroscope Y-offset.
     __GYRO_Z_OS = -1.4057     # Calibrated gyroscope Z-offset.
 
-    __BOOST_MEAS_PERIOD = 2 # 2 Seconds.
-    __SOLENOID_TRIGGER_PERIOD = 0.5 # 0.5 Seconds.
-
     __iTimer = None
     __mpu = None 
     __nanoRocks = None
 
     __logFileName = None
     __logFile = None
-    __bufferLength = 10
+    __bufferLength = 2
     __bufferIndex = 0 
     __mpuBuffer = None 
     __gravityState = STANDARD_G
@@ -57,8 +59,6 @@ class Icarus:
         self.__mpuBuffer[self.__bufferIndex] = magnitude
         self.__bufferIndex += 1
 
-        # TODO: Add section that logs data to file.
-
         return
     
     def __averageBuffer(self):
@@ -70,6 +70,7 @@ class Icarus:
 
         # Take the buffer average and use it to determine Gravity status.
         avgAccelMag = self.__averageBuffer()
+        print(f"Avg Mag: {avgAccelMag}")
 
         # Set the new Gravity Status.
         if(avgAccelMag >= self.__HIGH_G_BOUND): 
@@ -90,7 +91,7 @@ class Icarus:
         return
 
     def begin(self):
-        self.__nanoRocks.begin()
+        if(not testingMpu): self.__nanoRocks.begin()
 
         path = self.__logFileName + ".txt"
         header = "Time (ms); xAccel(m/s^2); yAccel(m/s^2); zAccel(m/s^2); accel Magnitude; xGyro; yGyro; zGyro\n"
@@ -108,15 +109,26 @@ class Icarus:
         return
 
     def loop(self):
-        self.__nanoRocks.updateTimeStamp(self.__iTimer.getCurrTime())
+        #self.__nanoRocks.updateTimeStamp(self.__iTimer.getCurrTime())
         self.__updateGravityStatus()
         self.delayMillis(500)
         return
     
     def runExperiment(self):
-        self.__nanoRocks.toggleSolenoid()
-        delayMS = self.__SOLENOID_TRIGGER_PERIOD * 1000
-        self.__iTimer.begin(delayMS)
+        # Ensure this is called only in active experiments.
+        if(self.__nanoRocks.isActive() == False): return
+
+        # Setup toggle.
+        if(self.__experimentTimerActive == False):
+            self.__nanoRocks.toggleSolenoid()
+            self.__iTimer.begin(self.SOLENOID_TRIGGER_PERIOD)
+            self.__experimentTimerActive = True
+
+        # Main toggle.
+        elif(self.__iTimer.get_timer_expired()):
+            self.__nanoRocks.toggleSolenoid()
+            self.__iTimer.begin(self.SOLENOID_TRIGGER_PERIOD)
+
         return
     
     def getgravityState(self):
@@ -127,3 +139,4 @@ class Icarus:
 
     def getTimer(self):
         return self.__iTimer
+    
