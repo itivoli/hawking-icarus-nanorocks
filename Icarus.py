@@ -1,3 +1,8 @@
+
+if __name__ == "__main__":
+    print("Icarus.py inccorrectly being used as top level.")
+    exit()
+
 from Timer import Timer
 from NanoRocks import NanoRocks
 from mpu6050 import mpu6050
@@ -13,15 +18,15 @@ class Icarus:
     MICRO_G = "Micro_G"
     HIGH_G = "High_G"
 
-    __MICRO_G_BOUND = 1
-    __HIGH_G_BOUND = 20
+    __MICRO_G_BOUND = 1         # Bound to detect microgravity (m/s^2)
+    __HIGH_G_BOUND = 20         # Bound to detect high accleration (m/s^2)      
 
-    __ACCEL_X_OS = 0.5058     # Calibrated accelormeter X-offset.
-    __ACCEL_Y_OS = -0.0998    # Calibrated accelormeter Y-offset.
-    __ACCEL_Z_OS = 7.1075     # Calibrated accelormeter Z-offset.
-    __GYRO_X_OS = -0.3365     # Calibrated gyroscope X-offset.
-    __GYRO_Y_OS = -1.1137     # Calibrated gyroscope Y-offset.
-    __GYRO_Z_OS = -1.4057     # Calibrated gyroscope Z-offset.
+    __ACCEL_X_OS = 0.5058       # Calibrated accelormeter X-offset.
+    __ACCEL_Y_OS = -0.0998      # Calibrated accelormeter Y-offset.
+    __ACCEL_Z_OS = 7.1075       # Calibrated accelormeter Z-offset.
+    __GYRO_X_OS = -0.3365       # Calibrated gyroscope X-offset.
+    __GYRO_Y_OS = -1.1137       # Calibrated gyroscope Y-offset.
+    __GYRO_Z_OS = -1.4057       # Calibrated gyroscope Z-offset.
 
     __iTimer = None
     __mpu = None 
@@ -29,10 +34,11 @@ class Icarus:
 
     __logFileName = None
     __logFile = None
-    __bufferLength = 2
+    __bufferLength = 5
     __bufferIndex = 0 
     __mpuBuffer = None 
     __gravityState = STANDARD_G
+    __experimentTimerActive = False
 
     def __logMPU(self, aData, magnitude, gData):
         entry = f"{self.__iTimer.getCurrTime()}; {aData[0]}; {aData[1]}; {aData[2]}; {magnitude}; {gData[0]}; {gData[1]}; {gData[2]}\n"
@@ -70,7 +76,6 @@ class Icarus:
 
         # Take the buffer average and use it to determine Gravity status.
         avgAccelMag = self.__averageBuffer()
-        print(f"Avg Mag: {avgAccelMag}")
 
         # Set the new Gravity Status.
         if(avgAccelMag >= self.__HIGH_G_BOUND): 
@@ -82,12 +87,14 @@ class Icarus:
 
         return
     
-    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName):
+    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20):
         self.__iTimer = Timer()
         self.__mpu = mpu6050(mpuAddress)
         self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSaveName)
         self.__mpuBuffer = np.zeros(self.__bufferLength)
         self.__logFileName = logFileName
+        self.__bufferLength = bufferLength
+        self.__HIGH_G_BOUND = highGBound
         return
 
     def begin(self):
@@ -101,6 +108,7 @@ class Icarus:
         return
 
     def end(self):
+        self.__logFile.close()
         self.__nanoRocks.end()
         return
     
@@ -116,7 +124,9 @@ class Icarus:
     
     def runExperiment(self):
         # Ensure this is called only in active experiments.
-        if(self.__nanoRocks.isActive() == False): return
+        if(self.__nanoRocks.isActive() == False): 
+            print("Invalid attempt to run experiment before NanoRocks was activated.")
+            return
 
         # Setup toggle.
         if(self.__experimentTimerActive == False):
@@ -125,7 +135,7 @@ class Icarus:
             self.__experimentTimerActive = True
 
         # Main toggle.
-        elif(self.__iTimer.get_timer_expired()):
+        elif(self.__iTimer.getTimerExpired()):
             self.__nanoRocks.toggleSolenoid()
             self.__iTimer.begin(self.SOLENOID_TRIGGER_PERIOD)
 
@@ -139,4 +149,7 @@ class Icarus:
 
     def getTimer(self):
         return self.__iTimer
+    
+    def getAvgAccelMag(self):
+        return self.__averageBuffer()
     

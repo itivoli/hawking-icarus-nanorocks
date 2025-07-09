@@ -1,3 +1,8 @@
+
+if __name__ == "__main__":
+    print("Timer.py inccorrectly being used as top level.")
+    exit()
+
 import time as time
 
 class Timer:

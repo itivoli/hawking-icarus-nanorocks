@@ -1,4 +1,8 @@
 
+if __name__ == "__main__":
+    print("NanoRocks.py inccorrectly being used as top level.")
+    exit()
+
 import subprocess
 import os
 import time as time
@@ -63,10 +67,9 @@ class NanoRocks:
         return
 
     def toggleSolenoid(self):
-        print(f"Pre Solenoid State: {self.__solenoidPinState} -> {self.__solenoidPinState}")
         self.__solenoidPinState = (self.__PIN_LOW) if (self.__solenoidPinState == self.__PIN_HIGH) else (self.__PIN_HIGH)
         self.__gpio.write( self.__solenoidPin,  self.__solenoidPinState)
-        print(f"Post Solenoid State: {self.__solenoidPinState} -> {self.__solenoidPinState}")
+        print(f"Solenoid Toggled: {int(not self.__solenoidPinState)} -> {self.__solenoidPinState}")
         return
 
     def toggleLed(self):
