@@ -11,8 +11,8 @@ import numpy as np
 testingMpu = False 
 class Icarus:
 
-    BOOST_MEAS_PERIOD = 30 * 1000         # 30 Seconds.
-    SOLENOID_TRIGGER_PERIOD = 0.5 * 1000  # 0.5 Seconds.
+    BOOST_MEAS_PERIOD = 30 * 1000         # Seconds.
+    SOLENOID_TRIGGER_PERIOD = 0.5 * 1000  # Seconds.
 
     STANDARD_G = "Standard_G"
     MICRO_G = "Micro_G"
