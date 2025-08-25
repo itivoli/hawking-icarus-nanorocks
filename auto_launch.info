@@ -1,0 +1,10 @@
+The way this main.py is auto launched on reboot of the rpi02w is by using the cron scheduler.
+Cron is accessible using "sudo crontab -e", this command allows you to edit the cron file.
+
+A single line, "@reboot python /home/cmrlab/Documents/Github/hawking/main.py&" is written in to the file
+and is responsible for marking main.py to be run on startup of the rpi02w. 
+
+Once experiment is over and the SD card is back in possesion of the CMR Lab, clear the cron file by either 
+typing in "sudo crontab -r" to reset it, or deleting the line added above using "sudo crontab -e" again.
+
+This video (https://www.youtube.com/watch?v=Gl9HS7-H0mI) shows the method.

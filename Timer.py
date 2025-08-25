@@ -1,3 +1,8 @@
+
+if __name__ == "__main__":
+    print("Timer.py inccorrectly being used as top level.")
+    exit()
+
 import time as time
 
 class Timer:
@@ -9,8 +14,14 @@ class Timer:
 
     def __tick(self, interval): self.__currTime += interval
 
-    def begin(self, duration): 
-        self.__startTime = self.__currTime
+    def begin(self, duration, reset = False): 
+        # Reset if needed.
+        if (reset):
+            self.__startTime = 0
+            self.__currTime = 0
+        else: 
+            self.__startTime = self.__currTime 
+
         self.__duration = duration
         self.__timerOn = True
         return
@@ -33,3 +44,6 @@ class Timer:
     
     def getStartTime(self):
         return self.__startTime
+
+    def getTimerExpired(self):
+        return self.__timerExpired
