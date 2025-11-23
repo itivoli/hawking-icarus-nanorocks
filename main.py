@@ -12,13 +12,14 @@ PROJ_DIR = "/home/cmrlab/Documents/Github/hawking"
 os.chdir(PROJ_DIR) 
 
 # Icarus Nanorocks constants.
-SOL = 17
+SOL = 22                                # Swapped from 17 due to GPIO17 being busted. (LOW = 2.5V instead of 0).
 LED = 6
 MPU = 0x68
-VIDEO_NAME = "cmrlab_inr_video"
-LOG_NAME = "cmrlab_inr_log"
+VIDEO_NAME = "cmrlab_inr_sustainer_video"
+LOG_NAME = "cmrlab_inr_sustainer_log"
 ACCEL_BUFFER_LEN = 3
-HIGH_ACCEL_BOUND = 9 # m/s^2
+HIGH_ACCEL_BOUND = 15 # m/s^2           
+SUSTAINER_BOOST_MEAS_PERIOD = 3.25 * 1000         
 
 # Check for Experiment completion.
 cron_log = None
@@ -45,7 +46,8 @@ ofDaedalus = Icarus(
     LOG_NAME, 
     VIDEO_NAME, 
     ACCEL_BUFFER_LEN, 
-    HIGH_ACCEL_BOUND
+    HIGH_ACCEL_BOUND,
+    SUSTAINER_BOOST_MEAS_PERIOD
     )
 ofDaedalus.begin()
 
