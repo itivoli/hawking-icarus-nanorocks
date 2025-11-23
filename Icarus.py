@@ -87,7 +87,7 @@ class Icarus:
 
         return
     
-    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20):
+    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20, boostPeriodInSeconds = 30*1000):
         self.__iTimer = Timer()
         self.__mpu = mpu6050(mpuAddress)
         self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSaveName)
@@ -95,6 +95,7 @@ class Icarus:
         self.__logFileName = logFileName
         self.__bufferLength = bufferLength
         self.__HIGH_G_BOUND = highGBound
+        self.BOOST_MEAS_PERIOD = boostPeriodInSeconds
         return
 
     def begin(self):
