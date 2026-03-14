@@ -79,7 +79,7 @@ class NanoRocks:
 
     def toggleRecording(self):
         # Toggle Led.
-        self.toggleLed()
+        #self.toggleLed()
 
         # Turn on recording.
         if(not self.__isRecording):
@@ -117,3 +117,10 @@ class NanoRocks:
 
     def isActive(self):
         return self.__active
+    
+    def takePicture(self, fileName:str):
+        self.__piCam.start()
+        time.sleep(1)
+        self.__piCam.capture_file(fileName)
+        self.__piCam.stop()
+        return
