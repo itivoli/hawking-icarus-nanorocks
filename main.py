@@ -12,7 +12,7 @@ PROJ_DIR = "/home/cmrlab/Documents/Github/hawking"
 os.chdir(PROJ_DIR) 
 
 # Icarus Nanorocks constants.
-SOL = 17
+SOL = 22  # Formerly IO17, swapped due to misbehaving IO17 on prev pi.
 LED = 6
 MPU = 0x68
 VIDEO_NAME = "cmrlab_inr_video"

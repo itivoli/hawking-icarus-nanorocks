@@ -8,7 +8,6 @@ from NanoRocks import NanoRocks
 from mpu6050 import mpu6050
 import numpy as np
 
-testingMpu = False 
 class Icarus:
 
     BOOST_MEAS_PERIOD = 30 * 1000         # Seconds.
@@ -40,9 +39,80 @@ class Icarus:
     __gravityState = STANDARD_G
     __experimentTimerActive = False
 
-    def __logMPU(self, aData, magnitude, gData):
+    def __calibrateMPU(self):
+
+        # Initialize.
+        self.__ACCEL_X_OS = 0
+        self.__ACCEL_Y_OS = 0
+        self.__ACCEL_Z_OS = 0
+        self.__GYRO_X_OS = 0
+        self.__GYRO_Y_OS = 0
+        self.__GYRO_Z_OS = 0
+
+        xAccel = 0
+        yAccel = 0
+        zAccel = 0
+        xGyro = 0
+        yGyro = 0
+        zGyro = 0
+
+        # Take samples.
+        sample_size = self.__bufferLength * 10
+        for i in range(sample_size):
+            accel_data = self.__mpu.get_accel_data()
+            gyro_data = self.__mpu.get_gyro_data()
+
+            xAccel += accel_data['x']
+            yAccel += accel_data['y']
+            zAccel += accel_data['z']
+            xGyro += gyro_data['x']
+            yGyro += gyro_data['y']
+            zGyro += gyro_data['z']
+
+            self.delayMillis(100)
+
+        self.__ACCEL_X_OS = xAccel / sample_size
+        self.__ACCEL_Y_OS = yAccel / sample_size
+        self.__ACCEL_Z_OS = zAccel / sample_size 
+        self.__GYRO_X_OS = xGyro / sample_size
+        self.__GYRO_Y_OS = yGyro / sample_size
+        self.__GYRO_Z_OS = zGyro / sample_size
+
+        return
+    
+    def __logMPU(self):
+
+        # Read data.
+        data = self.__readMPU()
+        aData = data[0]
+        gData = data[1]
+
+        # Compute accel magnitude.
+        magnitude = (aData[0] **2 + aData[1]**2 + aData[2]**2)**0.5
+
+        # Store calibrated acceleration, raw gyro, accel magnitude.
+        if(self.__bufferIndex == self.__bufferLength) :
+            self.__bufferIndex = 0
+        self.__mpuBuffer[self.__bufferIndex] = magnitude
+        self.__bufferIndex += 1
+
+        # Output to log file.
         entry = f"{self.__iTimer.getCurrTime()}; {aData[0]}; {aData[1]}; {aData[2]}; {magnitude}; {gData[0]}; {gData[1]}; {gData[2]}\n"
         self.__logFile.write(entry)
+        return
+    
+    def __printMPU(self):
+        # Read data.
+        data = self.__readMPU()
+        aData = data[0]
+        gData = data[1]
+
+        # Output to display.
+        magnitude = (aData[0] **2 + aData[1]**2 + aData[2]**2)**0.5
+        time = f"{self.__iTimer.getCurrTime()}\n"
+        accel = f"\tAccel: {aData[0]}; {aData[1]}; {aData[2]}; {magnitude}\n"
+        gyro = f"\tGyro: {gData[0]}; {gData[1]}; {gData[2]}\n"
+        print(time, accel, gyro)
         return
 
     def __readMPU(self):
@@ -55,24 +125,15 @@ class Icarus:
         xGyro = gyro_data['x'] - self.__GYRO_X_OS
         yGyro = gyro_data['y'] - self.__GYRO_Y_OS
         zGyro = gyro_data['z'] - self.__GYRO_Z_OS
-        
-        magnitude = (xAccel **2 + yAccel**2 + zAccel**2)**0.5
-        self.__logMPU([xAccel, yAccel, zAccel], magnitude, [xGyro, yGyro, zGyro])
 
-        # Store calibrated acceleration, raw gyro, accel magnitude.
-        if(self.__bufferIndex == self.__bufferLength) :
-            self.__bufferIndex = 0
-        self.__mpuBuffer[self.__bufferIndex] = magnitude
-        self.__bufferIndex += 1
-
-        return
+        return [[xAccel, yAccel, zAccel], [xGyro, yGyro, zGyro]]
     
     def __averageBuffer(self):
         return np.average(self.__mpuBuffer)
     
     def __updateGravityStatus(self):
-        # Read the MPU and store values in the internal buffers.
-        self.__readMPU()
+        # Store MPU data in buffers and output log file.
+        self.__logMPU()
 
         # Take the buffer average and use it to determine Gravity status.
         avgAccelMag = self.__averageBuffer()
@@ -87,7 +148,7 @@ class Icarus:
 
         return
     
-    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20):
+    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20, testingMpu = False):
         self.__iTimer = Timer()
         self.__mpu = mpu6050(mpuAddress)
         self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSaveName)
@@ -95,16 +156,19 @@ class Icarus:
         self.__logFileName = logFileName
         self.__bufferLength = bufferLength
         self.__HIGH_G_BOUND = highGBound
+        self.activate_camera = False if (testingMpu is True) else True
         return
 
     def begin(self):
-        if(not testingMpu): self.__nanoRocks.begin()
+        if(self.activate_camera): self.__nanoRocks.begin()
 
         path = self.__logFileName + ".txt"
-        header = "Time (ms); xAccel(m/s^2); yAccel(m/s^2); zAccel(m/s^2); accel Magnitude; xGyro; yGyro; zGyro\n"
+        data_header = f"x_a_os: {self.__ACCEL_X_OS},\ny_a_os: {self.__ACCEL_Y_OS},\nz_a_os: {self.__ACCEL_Z_OS},\nx_g_os: {self.__GYRO_X_OS},\ny_g_os: {self.__GYRO_Y_OS}, \nz_g_os: {self.__GYRO_Z_OS}\n"
+        table_header = "Time (ms); xAccel(m/s^2); yAccel(m/s^2); zAccel(m/s^2); accel Magnitude; xGyro; yGyro; zGyro\n"
 
         self.__logFile = open(path, 'w')
-        self.__logFile.write(header)
+        self.__logFile.write(data_header)
+        self.__logFile.write(table_header)
         return
 
     def end(self):
@@ -119,7 +183,7 @@ class Icarus:
     def loop(self):
         #self.__nanoRocks.updateTimeStamp(self.__iTimer.getCurrTime())
         self.__updateGravityStatus()
-        self.delayMillis(500)
+        self.delayMillis(100)
         return
     
     def runExperiment(self):
@@ -153,3 +217,10 @@ class Icarus:
     def getAvgAccelMag(self):
         return self.__averageBuffer()
     
+    def calibrateAccelerometer(self):
+        self.__calibrateMPU()
+        return
+    
+    def showIMUData(self):
+        self.__printMPU()
+        return
