@@ -7,6 +7,8 @@ from Timer import Timer
 from NanoRocks import NanoRocks
 from mpu6050 import mpu6050
 import numpy as np
+import os
+
 
 class Icarus:
 
@@ -18,11 +20,12 @@ class Icarus:
     HIGH_G = "High_G"
 
     __MICRO_G_BOUND = 1         # Bound to detect microgravity (m/s^2)
-    __HIGH_G_BOUND = 20         # Bound to detect high accleration (m/s^2)      
+    __HIGH_G_BOUND = 16         # Bound to detect high accleration (m/s^2). +/- 16g is max possible G-force readable from MPU6050.    
 
-    __ACCEL_X_OS = 0.5058       # Calibrated accelormeter X-offset.
-    __ACCEL_Y_OS = -0.0998      # Calibrated accelormeter Y-offset.
-    __ACCEL_Z_OS = 7.1075       # Calibrated accelormeter Z-offset.
+    __ACCEL_X_CAL = {"scale": 1, "offset": 0.5058}  # Calibrated accelormeter X params.
+    __ACCEL_Y_CAL = {"scale": 1, "offset": -0.0998}  # Calibrated accelormeter Y params.
+    __ACCEL_Z_CAL = {"scale": 1, "offset": 7.1075}   # Calibrated accelormeter Z params.
+
     __GYRO_X_OS = -0.3365       # Calibrated gyroscope X-offset.
     __GYRO_Y_OS = -1.1137       # Calibrated gyroscope Y-offset.
     __GYRO_Z_OS = -1.4057       # Calibrated gyroscope Z-offset.
@@ -39,41 +42,117 @@ class Icarus:
     __gravityState = STANDARD_G
     __experimentTimerActive = False
 
-    def __calibrateMPU(self):
+    def __calibrateMPUFromFile(self, mpu_config_file, over_write):
+       
+        # Read file if it exists.
+        file_exists = os.path.isfile(mpu_config_file)
+        if(file_exists and (not over_write)): 
+            print("Specified calibration file exists. Reading now.")
 
-        # Initialize.
-        self.__ACCEL_X_OS = 0
-        self.__ACCEL_Y_OS = 0
-        self.__ACCEL_Z_OS = 0
-        self.__GYRO_X_OS = 0
-        self.__GYRO_Y_OS = 0
-        self.__GYRO_Z_OS = 0
+            mpu_config_file = open(mpu_config_file, 'r')
+            calib_params = mpu_config_file.read()
+            mpu_config_file.close()
 
-        xAccel = 0
-        yAccel = 0
-        zAccel = 0
-        xGyro = 0
-        yGyro = 0
-        zGyro = 0
+            # Sanitize.
+            calib_params = calib_params.split()
 
-        # Take samples.
-        sample_size = self.__bufferLength * 10
+            # Set parameters.
+            params = calib_params[0].split(",")
+            self.__ACCEL_X_CAL["scale"] = float(params[0])
+            self.__ACCEL_X_CAL["offset"] = float(params[1])
+
+            params = calib_params[1].split(",")
+            self.__ACCEL_Y_CAL["scale"] = float(params[0])
+            self.__ACCEL_Y_CAL["offset"] = float(params[1])
+
+            params = calib_params[2].split(",")
+            self.__ACCEL_Z_CAL["scale"] = float(params[0])
+            self.__ACCEL_Z_CAL["offset"] = float(params[1])
+
+            self.__GYRO_X_OS = float(calib_params[3])
+            self.__GYRO_Y_OS = float(calib_params[4])
+            self.__GYRO_Z_OS = float(calib_params[5])
+
+        # Generate and store if it doesn't.
+        else:
+            if(not over_write): print("Specifed calibration file doesn't exist. Begin calibration.")
+            elif(file_exists and over_write): print("Recalibrating and overwriting specified calibration file.")
+            self.__calibrateMPUManually()
+
+            print("Finished. Writing calibration parameters to file.")
+            x_accel_params = f"{self.__ACCEL_X_CAL['scale']},{self.__ACCEL_X_CAL['offset']}\n"
+            y_accel_params = f"{self.__ACCEL_Y_CAL['scale']},{self.__ACCEL_Y_CAL['offset']}\n"
+            z_accel_params = f"{self.__ACCEL_Z_CAL['scale']},{self.__ACCEL_Z_CAL['offset']}\n"
+            x_gyro_os = f"{self.__GYRO_X_OS}\n"
+            y_gyro_os = f"{self.__GYRO_Y_OS}\n"
+            z_gyro_os = f"{self.__GYRO_Z_OS}\n"
+
+            mpu_config_file = open(mpu_config_file, 'w')
+            mpu_config_file.write(x_accel_params)
+            mpu_config_file.write(y_accel_params)
+            mpu_config_file.write(z_accel_params)
+            mpu_config_file.write(x_gyro_os)
+            mpu_config_file.write(y_gyro_os)
+            mpu_config_file.write(z_gyro_os)
+
+            mpu_config_file.close()
+            
+        return
+    
+    def __calibrateMPUManually(self):
+
+        # Prompt list.
+        positions = [
+            ("+X", "Place sensor with +X axis pointing UP (chip's x-axis up)"),
+            ("-X", "Place sensor with -X axis UP (flip 180 on X)"),
+            ("+Y", "Place sensor with +Y axis pointing UP"),
+            ("-Y", "Place sensor with -Y axis UP"),
+            ("+Z", "Place sensor with +Z axis pointing UP (face up)"),
+            ("-Z", "Place sensor with -Z axis pointing UP (face down)")
+        ]
+
+        # Compute accel parameters.
+        raw_measurements = {}
+        sample_size  = self.__bufferLength * 10
+        for half_axis, prompt in positions:
+            print(f"\n{prompt}")
+            input("Press Enter when ready.")
+
+            axis = half_axis[1].lower()
+            axis_accel_data = 0
+            for i in range(sample_size):
+                accel_data = self.__mpu.get_accel_data()
+                axis_accel_data += accel_data[axis]
+                self.delayMillis(100)
+
+            raw_measurements[half_axis] = axis_accel_data/sample_size
+
+        # Set accel calibration parameters.
+        max_pos = raw_measurements["+X"]
+        max_neg = raw_measurements["-X"]
+        self.__ACCEL_X_CAL["scale"] = (max_pos - max_neg) / 2.0
+        self.__ACCEL_X_CAL["offset"] = (max_pos + max_neg) / 2.0
+
+        max_pos = raw_measurements["+Y"]
+        max_neg = raw_measurements["-Y"]
+        self.__ACCEL_Y_CAL["scale"] = (max_pos - max_neg) / 2.0
+        self.__ACCEL_Y_CAL["offset"] = (max_pos + max_neg) / 2.0
+
+        max_pos = raw_measurements["+Z"]
+        max_neg = raw_measurements["-Z"]
+        self.__ACCEL_Z_CAL["scale"] = (max_pos - max_neg) / 2.0
+        self.__ACCEL_Z_CAL["offset"] = (max_pos + max_neg) / 2.0
+
+        # Compute and set gyro calibration paramters.
+        xGyro = yGyro = zGyro = 0
         for i in range(sample_size):
-            accel_data = self.__mpu.get_accel_data()
             gyro_data = self.__mpu.get_gyro_data()
-
-            xAccel += accel_data['x']
-            yAccel += accel_data['y']
-            zAccel += accel_data['z']
             xGyro += gyro_data['x']
             yGyro += gyro_data['y']
             zGyro += gyro_data['z']
 
             self.delayMillis(100)
 
-        self.__ACCEL_X_OS = xAccel / sample_size
-        self.__ACCEL_Y_OS = yAccel / sample_size
-        self.__ACCEL_Z_OS = zAccel / sample_size 
         self.__GYRO_X_OS = xGyro / sample_size
         self.__GYRO_Y_OS = yGyro / sample_size
         self.__GYRO_Z_OS = zGyro / sample_size
@@ -116,12 +195,14 @@ class Icarus:
         return
 
     def __readMPU(self):
+        # Grab data.
         accel_data = self.__mpu.get_accel_data()
         gyro_data = self.__mpu.get_gyro_data()
 
-        xAccel = accel_data['x'] - self.__ACCEL_X_OS
-        yAccel = accel_data['y'] - self.__ACCEL_Y_OS
-        zAccel = accel_data['z'] - self.__ACCEL_Z_OS
+        # Sanitize data w/ calibration parameters.
+        xAccel = (accel_data['x'] - self.__ACCEL_X_CAL["offset"]) / self.__ACCEL_X_CAL["scale"]
+        yAccel = (accel_data['y'] - self.__ACCEL_Y_CAL["offset"]) / self.__ACCEL_Y_CAL["scale"]
+        zAccel = (accel_data['z'] - self.__ACCEL_Z_CAL["offset"]) / self.__ACCEL_Z_CAL["scale"]
         xGyro = gyro_data['x'] - self.__GYRO_X_OS
         yGyro = gyro_data['y'] - self.__GYRO_Y_OS
         zGyro = gyro_data['z'] - self.__GYRO_Z_OS
@@ -163,7 +244,7 @@ class Icarus:
         if(self.activate_camera): self.__nanoRocks.begin()
 
         path = self.__logFileName + ".txt"
-        data_header = f"x_a_os: {self.__ACCEL_X_OS},\ny_a_os: {self.__ACCEL_Y_OS},\nz_a_os: {self.__ACCEL_Z_OS},\nx_g_os: {self.__GYRO_X_OS},\ny_g_os: {self.__GYRO_Y_OS}, \nz_g_os: {self.__GYRO_Z_OS}\n"
+        data_header = f"x_a_os: {self.__ACCEL_X_CAL},\ny_a_os: {self.__ACCEL_Y_CAL},\nz_a_os: {self.__ACCEL_Z_CAL},\nx_g_os: {self.__GYRO_X_OS},\ny_g_os: {self.__GYRO_Y_OS}, \nz_g_os: {self.__GYRO_Z_OS}\n"
         table_header = "Time (ms); xAccel(m/s^2); yAccel(m/s^2); zAccel(m/s^2); accel Magnitude; xGyro; yGyro; zGyro\n"
 
         self.__logFile = open(path, 'w')
@@ -217,8 +298,10 @@ class Icarus:
     def getAvgAccelMag(self):
         return self.__averageBuffer()
     
-    def calibrateAccelerometer(self):
-        self.__calibrateMPU()
+    def calibrateAccelerometer(self, mpu_config_file=None, over_write=False):
+        if(mpu_config_file != None): self.__calibrateMPUFromFile(mpu_config_file, over_write)
+        else: self.__calibrateMPUManually()
+
         return
     
     def showIMUData(self):

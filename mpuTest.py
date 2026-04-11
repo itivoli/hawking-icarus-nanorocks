@@ -1,5 +1,9 @@
 from Icarus import Icarus
 
+import os
+PROJ_DIR = "/home/cmrlab/Documents/Github/hawking"
+os.chdir(PROJ_DIR) 
+
 # Icarus Nanorocks constants.
 SOL = 5
 LED = 6
@@ -8,7 +12,7 @@ VIDEO_NAME = "cmrlab_inr_video"
 LOG_NAME = "test_log"
 
 ofDaedalus = Icarus(SOL, LED, MPU, LOG_NAME, VIDEO_NAME, testingMpu = True)
-ofDaedalus.calibrateAccelerometer()
+ofDaedalus.calibrateAccelerometer("mpu.config", over_write=True)
 ofDaedalus.begin()
 
 print("Begin Shaking (w/ Vigor!)")
