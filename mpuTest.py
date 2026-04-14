@@ -12,7 +12,7 @@ VIDEO_NAME = "cmrlab_inr_video"
 LOG_NAME = "test_log"
 
 ofDaedalus = Icarus(SOL, LED, MPU, LOG_NAME, VIDEO_NAME, testingMpu = True)
-ofDaedalus.calibrateAccelerometer("mpu.config", over_write=True)
+ofDaedalus.calibrateAccelerometer("mpu.config", over_write=False)
 ofDaedalus.begin()
 
 print("Begin Shaking (w/ Vigor!)")

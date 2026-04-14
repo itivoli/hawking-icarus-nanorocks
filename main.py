@@ -3,7 +3,7 @@ if __name__ != "__main__":
     print("main.py inccorrectly being used as non top level.")
     exit(1)
 
-shortVidDurTest = True
+shortVidDurTest = False
 shortVidDur = 5 * 1000
 
 # Set project working directory.
@@ -17,8 +17,9 @@ LED = 6
 MPU = 0x68
 VIDEO_NAME = "cmrlab_inr_video"
 LOG_NAME = "cmrlab_inr_log"
-ACCEL_BUFFER_LEN = 3
-HIGH_ACCEL_BOUND = 9 # m/s^2
+ACCEL_BUFFER_LEN = 3    # Gs
+BOOST_HIGH_ACCEL_BOUND = 16   #Gs
+SUS_PARACHUTE_HIGH_ACCEL_BOUND = 2  #Gs
 
 # Check for Experiment completion.
 cron_log = None
@@ -45,8 +46,9 @@ ofDaedalus = Icarus(
     LOG_NAME, 
     VIDEO_NAME, 
     ACCEL_BUFFER_LEN, 
-    HIGH_ACCEL_BOUND
+    BOOST_HIGH_ACCEL_BOUND
     )
+ofDaedalus.calibrateAccelerometer("mpu.config", over_write=False)
 ofDaedalus.begin()
 
 # Launch Detection Loop.
@@ -63,7 +65,7 @@ print(f"Entering Boost Wait Loop @ {ofDaedalus.getTimer().getCurrTime()} ms.")
 gState = ofDaedalus.getgravityState()
 ofDaedalus.getNanoRocks().toggleRecording()
 if(shortVidDurTest): ofDaedalus.getTimer().begin(shortVidDur)
-else: ofDaedalus.getTimer().begin(Icarus.BOOST_MEAS_PERIOD)
+else: ofDaedalus.getTimer().begin(Icarus.SUS_BOOST_MEAS_PERIOD)
 clkExpired = ofDaedalus.getTimer().getTimerExpired()
 while (clkExpired != True):
     ofDaedalus.loop()
@@ -73,6 +75,7 @@ print(f"Exiting Boost Wait Loop @ {ofDaedalus.getTimer().getCurrTime()} ms.")
 
 # Main Experiment Loop.
 print("Entering Main Experiment Loop.")
+ofDaedalus.setHighGBound(SUS_PARACHUTE_HIGH_ACCEL_BOUND)
 ofDaedalus.runExperiment()
 gState = ofDaedalus.getgravityState()
 while (gState != Icarus.HIGH_G):

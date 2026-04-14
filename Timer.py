@@ -24,6 +24,7 @@ class Timer:
 
         self.__duration = duration
         self.__timerOn = True
+        self.__timerExpired = False
         return
     
     def timeElapsed(self): 

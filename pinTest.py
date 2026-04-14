@@ -6,7 +6,7 @@ LOW = 0
 
 testPin = 22
 testDur = 10  # in seconds.
-toggleFreq = 1 # in Hz.
+toggleFreq = 2 # in Hz.
     
 GPIO = pigpio.pi()
 GPIO.set_mode(testPin, pigpio.OUTPUT)

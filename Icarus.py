@@ -12,8 +12,9 @@ import os
 
 class Icarus:
 
-    BOOST_MEAS_PERIOD = 30 * 1000         # Seconds.
-    SOLENOID_TRIGGER_PERIOD = 0.5 * 1000  # Seconds.
+    SUS_BOOST_MEAS_PERIOD = 5 * 1000        # Seconds. For Sustainer Launch.
+    MAIN_BOOST_MEAS_PERIOD = 30 * 1000      # Seconds. For Main Launch.
+    SOLENOID_TRIGGER_PERIOD = 0.5 * 1000    # Seconds.
 
     STANDARD_G = "Standard_G"
     MICRO_G = "Micro_G"
@@ -22,9 +23,9 @@ class Icarus:
     __MICRO_G_BOUND = 1         # Bound to detect microgravity (m/s^2)
     __HIGH_G_BOUND = 16         # Bound to detect high accleration (m/s^2). +/- 16g is max possible G-force readable from MPU6050.    
 
-    __ACCEL_X_CAL = {"scale": 1, "offset": 0.5058}  # Calibrated accelormeter X params.
-    __ACCEL_Y_CAL = {"scale": 1, "offset": -0.0998}  # Calibrated accelormeter Y params.
-    __ACCEL_Z_CAL = {"scale": 1, "offset": 7.1075}   # Calibrated accelormeter Z params.
+    __ACCEL_X_CAL = {"scale": 1, "offset": 0.5058/9.81}  # Calibrated accelormeter X params.
+    __ACCEL_Y_CAL = {"scale": 1, "offset": -0.0998/9.81}  # Calibrated accelormeter Y params.
+    __ACCEL_Z_CAL = {"scale": 1, "offset": 7.1075/9.81}   # Calibrated accelormeter Z params.
 
     __GYRO_X_OS = -0.3365       # Calibrated gyroscope X-offset.
     __GYRO_Y_OS = -1.1137       # Calibrated gyroscope Y-offset.
@@ -121,7 +122,7 @@ class Icarus:
             axis = half_axis[1].lower()
             axis_accel_data = 0
             for i in range(sample_size):
-                accel_data = self.__mpu.get_accel_data()
+                accel_data = self.__mpu.get_accel_data(g=True)
                 axis_accel_data += accel_data[axis]
                 self.delayMillis(100)
 
@@ -196,7 +197,7 @@ class Icarus:
 
     def __readMPU(self):
         # Grab data.
-        accel_data = self.__mpu.get_accel_data()
+        accel_data = self.__mpu.get_accel_data(g=True)
         gyro_data = self.__mpu.get_gyro_data()
 
         # Sanitize data w/ calibration parameters.
@@ -229,9 +230,15 @@ class Icarus:
 
         return
     
-    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 20, testingMpu = False):
-        self.__iTimer = Timer()
+    def __init__(self, solenoidPin, ledPin, mpuAddress, logFileName, videoSaveName, bufferLength = 5, highGBound = 16, testingMpu = False):
+        # Setup MPU.
         self.__mpu = mpu6050(mpuAddress)
+        self.__mpu.set_accel_range(mpu6050.ACCEL_RANGE_16G)
+        self.__mpu.set_gyro_range(mpu6050.GYRO_RANGE_500DEG)
+        self.__mpu.set_filter_range(mpu6050.FILTER_BW_188)
+
+        # Setup the rest.
+        self.__iTimer = Timer()
         self.__nanoRocks = NanoRocks(solenoidPin, ledPin, videoSaveName)
         self.__mpuBuffer = np.zeros(self.__bufferLength)
         self.__logFileName = logFileName
@@ -306,4 +313,8 @@ class Icarus:
     
     def showIMUData(self):
         self.__printMPU()
+        return
+    
+    def setHighGBound(self, bound):
+        self.__HIGH_G_BOUND = bound
         return
